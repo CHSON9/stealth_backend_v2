@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>STEALTH - 카메라 송출</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            width: 100%;
+            height: 100dvh; /* 모바일 동적 높이에 정확히 맞춤 */
+            overflow: hidden; /* 스크롤 완전 차단 */
+            background-color: #030705; color: #00ff88;
+        }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+            display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+            padding: 12px 16px 16px 16px;
+        }
+
+        /* 상단 STEALTH 브랜드 헤더 */
+        header { 
+            width: 100%; max-width: 420px;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 4px 0 8px 0; border-bottom: 1px solid rgba(0, 255, 136, 0.2);
+            flex-shrink: 0;
+        }
+        .brand {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 1.05rem; font-weight: 900; letter-spacing: 2px; color: #00ff88;
+        }
+        .brand-logo {
+            width: 20px; height: 20px; background-color: #00ff88; color: #030705;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.75rem; font-weight: bold; border-radius: 4px;
+        }
+
+        /* 상태 배지 */
+        .status-badge {
+            font-size: 0.75rem; font-weight: bold; padding: 4px 10px; border-radius: 4px;
+            background-color: rgba(0, 255, 136, 0.1); color: #00ff88; border: 1px solid rgba(0, 255, 136, 0.3);
+            display: flex; align-items: center; gap: 6px;
+        }
+        .status-dot { width: 6px; height: 6px; background-color: #00ff88; border-radius: 50%; }
+        .status-badge.streaming { background-color: #00ff88; color: #030705; }
+        .status-badge.streaming .status-dot { background-color: #030705; }
+
+        /* 카메라 뷰파인더 뷰 (화면 여백에 맞게 가변 확장/축소) */
+        .camera-card {
+            width: 100%; max-width: 420px; flex: 1; min-height: 0;
+            margin: 10px 0;
+            background-color: #060d09; border: 1px solid rgba(0, 255, 136, 0.25);
+            border-radius: 8px; padding: 10px; position: relative;
+            display: flex; flex-direction: column; justify-content: space-between;
+        }
+        .card-header {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 0.8rem; color: #00ff88; margin-bottom: 6px; flex-shrink: 0;
+        }
+
+        .viewfinder {
+            width: 100%; flex: 1; min-height: 0; background-color: #000000; border-radius: 4px;
+            position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;
+            border: 1px dashed rgba(0, 255, 136, 0.2);
+        }
+        video { width: 100%; height: 100%; object-fit: cover; }
+
+        /* Figma 조준선 네온 코너 마크 */
+        .corner { position: absolute; width: 14px; height: 14px; border-color: #00ff88; border-style: solid; pointer-events: none; z-index: 2; }
+        .top-left { top: 8px; left: 8px; border-width: 2px 0 0 2px; }
+        .top-right { top: 8px; right: 8px; border-width: 2px 2px 0 0; }
+        .bottom-left { bottom: 8px; left: 8px; border-width: 0 0 2px 2px; }
+        .bottom-right { bottom: 8px; right: 8px; border-width: 0 2px 2px 0; }
+
+        /* 조작 컨트롤 영역 */
+        .controls { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+        .btn {
+            width: 100%; padding: 14px; border: none; border-radius: 6px;
+            font-size: 0.95rem; font-weight: bold; cursor: pointer; transition: 0.2s;
+            letter-spacing: 1px;
+        }
+        .btn-start { background-color: #00ff88; color: #030705; box-shadow: 0 0 12px rgba(0, 255, 136, 0.3); }
+        .btn-start:active { background-color: #00cc6a; }
+        .btn-stop { background-color: #ff3b30; color: #ffffff; display: none; }
+        .btn-switch {
+            background-color: transparent; color: #00ff88;
+            border: 1px solid rgba(0, 255, 136, 0.4); padding: 6px 10px; font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="brand">
+            <div class="brand-logo">S</div>
+            <span>STEALTH</span>
+        </div>
+        <div id="statusBadge" class="status-badge">
+            <span class="status-dot"></span>
+            <span id="statusText">대기 중</span>
+        </div>
+    </header>
+
+    <div class="camera-card">
+        <div class="card-header">
+            <span>📷 원본 영상 (Sender)</span>
+            <button class="btn btn-switch" style="width: auto;" onclick="switchCamera()">🔄 전환</button>
+        </div>
+
+        <div class="viewfinder">
+            <div class="corner top-left"></div>
+            <div class="corner top-right"></div>
+            <div class="corner bottom-left"></div>
+            <div class="corner bottom-right"></div>
+            <video id="webcam" autoplay playsinline muted></video>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="startBtn" class="btn btn-start" onclick="startStreaming()">영상 보내기</button>
+        <button id="stopBtn" class="btn btn-stop" onclick="stopStreaming()">송출 중단</button>
+    </div>
+
+    <script>
+        const video = document.getElementById('webcam');
+        const statusBadge = document.getElementById('statusBadge');
+        const statusText = document.getElementById('statusText');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+
+        let currentStream = null;
+        let currentFacingMode = 'environment';
+        let sendInterval = null;
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        const SERVER_URL = "http://172.30.1.27:5000";
+        const socket = io(SERVER_URL, { 
+            transports: ['websocket', 'polling'],
+            autoConnect: true
+        });
+
+        socket.on('connect', () => {
+            socket.emit('register_client', { role: 'sender' });
+        });
+
+        function getUserMediaCompat(constraints) {
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                return navigator.mediaDevices.getUserMedia(constraints);
+            }
+            const legacyApi = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
+            if (legacyApi) {
+                return new Promise((resolve, reject) => {
+                    legacyApi.call(navigator, constraints, resolve, reject);
+                });
+            }
+            return Promise.reject(new Error("HTTP 보안 정책으로 카메라를 열 수 없습니다. chrome://flags 설정을 확인하세요."));
+        }
+
+        async function startCamera(facingMode) {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+
+            try {
+                currentStream = await getUserMediaCompat({
+                    video: { facingMode: facingMode },
+                    audio: false
+                });
+                video.srcObject = currentStream;
+                currentFacingMode = facingMode;
+            } catch (err) {
+                try {
+                    currentStream = await getUserMediaCompat({ video: true, audio: false });
+                    video.srcObject = currentStream;
+                } catch (fallbackErr) {
+                    alert(fallbackErr.message);
+                }
+            }
+        }
+
+        function switchCamera() {
+            const nextMode = (currentFacingMode === 'environment') ? 'user' : 'environment';
+            startCamera(nextMode);
+        }
+
+        function startStreaming() {
+            if (!socket.connected) {
+                alert("서버 연결 시도 중입니다.");
+                socket.connect();
+                return;
+            }
+
+            statusText.textContent = "송출 중";
+            statusBadge.classList.add('streaming');
+            startBtn.style.display = 'none';
+            stopBtn.style.display = 'block';
+
+            canvas.width = 640;
+            canvas.height = 480;
+
+            sendInterval = setInterval(() => {
+                if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const base64Image = canvas.toDataURL('image/jpeg', 0.5);
+                    socket.emit('image_frame', { image: base64Image });
+                }
+            }, 1000 / 15);
+        }
+
+        function stopStreaming() {
+            if (sendInterval) {
+                clearInterval(sendInterval);
+                sendInterval = null;
+            }
+            statusText.textContent = "대기 중";
+            statusBadge.classList.remove('streaming');
+            startBtn.style.display = 'block';
+            stopBtn.style.display = 'none';
+        }
+
+        window.onload = () => startCamera('environment');
+    </script>
+</body>
+</html>
