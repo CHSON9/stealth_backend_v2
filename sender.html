@@ -136,7 +136,7 @@
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
 
-        const SERVER_URL = "http://172.30.1.27:5000";
+        const SERVER_URL = "http://119.194.117.120:5000"; <!-- 환경 바뀔 때 변경 -->
         const socket = io(SERVER_URL, { 
             transports: ['websocket', 'polling'],
             autoConnect: true
