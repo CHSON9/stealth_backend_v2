@@ -12,14 +12,15 @@ def get_db_connection():
         user='root',            
         password='mysql1234', 
         database='stealth_db',  
-        buffered=True   
+        buffered=True,
+        autocommit=True
     )
     if not connection.is_connected():
         connection.reconnect(attempts=3, delay=1)
     return connection
 
 api_bp = Blueprint('stealth_api', __name__)
-SERVER_BASE_URL = "http://172.30.1.27:5000"
+SERVER_BASE_URL = "http://119.194.117.120:5000" #환경 바뀔 때 변경
 
 # -------------------------------------------------------------------
 # REST API 1. 등록 인물 목록 조회
