@@ -85,6 +85,12 @@ def handle_disconnect():
 
 is_streaming = False
 
+@socketio.on('stop_stream')
+def handle_stop_stream():
+    global is_streaming
+    is_streaming = False
+    socketio.emit('stream_status', {'status': 'stopped'}, room='viewer')
+
 @socketio.on('register_client')
 def handle_register_client(data):
     """
