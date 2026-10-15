@@ -269,17 +269,17 @@ def create_person():
             
         db.commit()
 
-        try:
-            server_module = sys.modules.get('__main__') or sys.modules.get('back_server')
+        # try:
+        #     server_module = sys.modules.get('__main__') or sys.modules.get('back_server')
     
-            if server_module and hasattr(server_module, 'reload_gallery_embeddings'):
-                actual_paths = [os.path.join(person_dir, fname) for fname in os.listdir(person_dir)]
-                if actual_paths:
-                    server_module.reload_gallery_embeddings(person_id, actual_paths)
-            else:
-                print(f"[AI Sync Info] reload_gallery_embeddings 함수를 찾을 수 없어 AI 갤러리 갱신을 건너뜁니다.")
-        except Exception as sync_err:
-            print(f"[AI Sync Warning] 갤러리 동기화 중 오류 (서버 미가동 등): {sync_err}")
+            # if server_module and hasattr(server_module, 'reload_gallery_embeddings'):
+            #     actual_paths = [os.path.join(person_dir, fname) for fname in os.listdir(person_dir)]
+            #     if actual_paths:
+            #         server_module.reload_gallery_embeddings(person_id, actual_paths)
+            # else:
+            #     print(f"[AI Sync Info] reload_gallery_embeddings 함수를 찾을 수 없어 AI 갤러리 갱신을 건너뜁니다.")
+        # except Exception as sync_err:
+        #     print(f"[AI Sync Warning] 갤러리 동기화 중 오류 (서버 미가동 등): {sync_err}")
 
         return jsonify({
             "status": "success",
@@ -377,12 +377,16 @@ def socket_docs():
              "image": "data:image/jpeg;base64,.....(Base64 문자열)"
            }
            ```
+
+      3. **`stop_stream`**
+         - **설명**: 핸드폰(sender)에서 영상 송출 중단 버튼을 클릭했을 때 서버로 송출 중지 알림
+         - **데이터 규격**: 없음 (이벤트만 발송)
            
       ---
       
       ### [2] 서버 -> 클라이언트 (Server -> Client Events)
       
-      1. **`original_frame`** [신규]
+      1. **`original_frame`** 
          - **설명**: 핸드폰에서 올라온 원본 프레임을 시청자(`viewer`) 화면(왼쪽)으로 바로 중계(Relay)
          - **데이터 규격**:
            ```json
@@ -405,7 +409,7 @@ def socket_docs():
          - **데이터 규격**:
            ```json
            {
-             "status": "streaming" // waiting, processing, streaming, stopped
+             "status": "streaming" // waiting, streaming, stopped
            }
            ```
          
