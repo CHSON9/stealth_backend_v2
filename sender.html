@@ -215,6 +215,7 @@
                 clearInterval(sendInterval);
                 sendInterval = null;
             }
+            socket.emit('stop_stream');
             statusText.textContent = "대기 중";
             statusBadge.classList.remove('streaming');
             startBtn.style.display = 'block';
