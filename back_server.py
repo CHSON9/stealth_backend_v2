@@ -14,7 +14,7 @@ from main import RTX3090_BUFFERED_RUNTIME
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'stealth_secret_key'
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # CORS 및 Socket.io 설정
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet', max_http_buffer_size=10 * 1024 * 1024, always_connect=True)
@@ -78,17 +78,30 @@ def handle_connect():
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    global is_streaming
+    global is_streaming, is_processing
     print(f"[Socket.IO] 클라이언트 연결 해제됨: {request.sid}")
     is_streaming = False
+    is_processing = False
     socketio.emit('stream_status', {'status': 'stopped'}, room='viewer')
 
 is_streaming = False
 
+@socketio.on('start_stream')
+def handle_start_stream():
+    """
+    노트북(viewer)에서 '영상 보내기' 클릭 시 핸드폰(sender)으로 카메라 송출 시작 신호 전달
+    """
+    global is_streaming
+    is_streaming = True
+    print("[Socket.IO] 원격 송출 시작 명령 수신 (start_stream)")
+    socketio.emit('start_stream', room='sender')
+    socketio.emit('stream_status', {'status': 'streaming'}, room='viewer')
+
 @socketio.on('stop_stream')
 def handle_stop_stream():
-    global is_streaming
+    global is_streaming, is_processing
     is_streaming = False
+    is_processing = False
     socketio.emit('stream_status', {'status': 'stopped'}, room='viewer')
 
 @socketio.on('register_client')
