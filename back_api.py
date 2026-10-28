@@ -7,17 +7,24 @@ from werkzeug.utils import secure_filename
 
 #db 연결
 def get_db_connection():
-    connection = mysql.connector.connect(
-        host='127.0.0.1',       
-        user='root',            
-        password='mysql1234', 
-        database='stealth_db',  
-        buffered=True,
-        autocommit=True
-    )
-    if not connection.is_connected():
-        connection.reconnect(attempts=3, delay=1)
-    return connection
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            connection = mysql.connector.connect(
+                host='127.0.0.1',       
+                user='root',            
+                password='mysql1234', 
+                database='stealth_db',  
+                buffered=True,
+                autocommit=True,
+                connect_timeout=5
+            )
+            if connection.is_connected():
+                return connection
+        except mysql.connector.Error as err:
+            print(f"[DB Connection Retry {attempt + 1}/{max_retries}] 에러 발생: {err}")
+            if attempt == max_retries - 1:
+                raise err
 
 api_bp = Blueprint('stealth_api', __name__)
 SERVER_BASE_URL = "http://119.194.117.120:5000" #환경 바뀔 때 변경
@@ -159,23 +166,38 @@ def get_person_photos(person_id):
                 "message": "해당 인물 정보를 찾을 수 없습니다."
             }), 404
             
-        # 2. 해당 인물의 등록 사진 전체 목록 조회
-        photos_sql = """
-            SELECT 
-                photo_id,
-                image_path AS image_url,
-                is_representative
-            FROM person_photos
-            WHERE person_id = %s
-            ORDER BY is_representative DESC, photo_id ASC
-        """
-        cursor.execute(photos_sql, (person_id,))
-        photos = cursor.fetchall()
+        # # 2. 해당 인물의 등록 사진 전체 목록 조회
+        # photos_sql = """
+        #     SELECT 
+        #         photo_id,
+        #         image_path AS image_url,
+        #         is_representative
+        #     FROM person_photos
+        #     WHERE person_id = %s
+        #     ORDER BY is_representative DESC, photo_id ASC
+        # """
+        # cursor.execute(photos_sql, (person_id,))
+        # photos = cursor.fetchall()
 
-        for photo in photos:
-            photo['is_representative'] = bool(photo['is_representative'])
-            if photo.get('image_url'):
-                photo['image_url'] = f"{SERVER_BASE_URL}{photo['image_url']}"
+        # for photo in photos:
+        #     photo['is_representative'] = bool(photo['is_representative'])
+        #     if photo.get('image_url'):
+        #         photo['image_url'] = f"{SERVER_BASE_URL}{photo['image_url']}"
+
+        # 2. DB 조회 대신 실제 디스크 폴더(uploads/persons/person_id/) 내부 파일을 스캔
+        person_dir = os.path.join(UPLOAD_FOLDER, person_id)
+        photos = []
+        
+        if os.path.exists(person_dir):
+            valid_exts = ('.jpg', '.jpeg', '.png', '.webp', '.bmp')
+            filenames = sorted([f for f in os.listdir(person_dir) if f.lower().endswith(valid_exts)])
+            
+            for idx, fname in enumerate(filenames):
+                photos.append({
+                    "photo_id": f"photo_{idx+1}",
+                    "image_url": f"{SERVER_BASE_URL}/uploads/persons/{person_id}/{fname}",
+                    "is_representative": (idx == 0)  # 첫 번째 사진을 대표 사진으로 설정
+                })
         
         return jsonify({
             "status": "success",
@@ -247,16 +269,19 @@ def create_person():
         os.makedirs(person_dir, exist_ok=True)
         
         for idx, file in enumerate(valid_files):
-            original_filename = secure_filename(file.filename)
+            ext = os.path.splitext(file.filename)[1].lower()
+            allowed_extensions = ['.jpg', '.jpeg', '.png', '.webp', '.bmp', '.gif']
+            if not ext or ext not in allowed_extensions:
+                ext = '.jpg'
 
-            if not original_filename:
-                ext = os.path.splitext(file.filename)[1] or '.jpg'
-                original_filename = f"image{ext}"
+            safe_base = secure_filename(os.path.splitext(file.filename)[0])
+            if not safe_base:
+                safe_base = "photo"
 
-            unique_filename = f"{uuid.uuid4().hex[:6]}_{original_filename}"
-
+            unique_filename = f"{uuid.uuid4().hex[:8]}_{safe_base}{ext}"
             photo_id = f"photo_{uuid.uuid4().hex[:8]}"
             save_path = os.path.join(person_dir, unique_filename)
+            
             file.save(save_path)
             
             web_image_path = f"/uploads/persons/{person_id}/{unique_filename}"
@@ -368,8 +393,12 @@ def socket_docs():
              "role": "sender" // 핸드폰(송출자)일 경우 "sender", 노트북(시청자)일 경우 "viewer"
            }
            ```
+
+      2. **`start_stream`**
+         - **설명**: 노트북(viewer)에서 '영상 보내기' 버튼 클릭 시 핸드폰(sender)으로 원격 촬영 시작 명령 전달
+         - **데이터 규격**: 없음 (빈 이벤트만 발송)
          
-      2. **`image_frame`**
+      3. **`image_frame`**
          - **설명**: 핸드폰 카메라 웹뷰에서 원본 이미지 프레임을 초당 송출
          - **데이터 규격**:
            ```json
@@ -378,15 +407,19 @@ def socket_docs():
            }
            ```
 
-      3. **`stop_stream`**
-         - **설명**: 핸드폰(sender)에서 영상 송출 중단 버튼을 클릭했을 때 서버로 송출 중지 알림
+      4. **`stop_stream`**
+         - **설명**: 영상 송출 중단 버튼을 클릭했을 때 서버로 송출 중지 알림
          - **데이터 규격**: 없음 (이벤트만 발송)
            
       ---
       
       ### [2] 서버 -> 클라이언트 (Server -> Client Events)
+
+      1. **`start_stream`**
+         - **설명**: 노트북의 요청을 받아 서버가 핸드폰(sender)으로 전달하는 원격 카메라 캡처/송출 시작 명령
+         - **데이터 규격**: 없음
       
-      1. **`original_frame`** 
+      2. **`original_frame`** 
          - **설명**: 핸드폰에서 올라온 원본 프레임을 시청자(`viewer`) 화면(왼쪽)으로 바로 중계(Relay)
          - **데이터 규격**:
            ```json
@@ -395,7 +428,7 @@ def socket_docs():
            }
            ```
 
-      2. **`processed_frame`**
+      3. **`processed_frame`**
          - **설명**: AI 파이프라인에서 투명화/배경복원이 완료된 처리 영상 프레임을 시청자(`viewer`) 화면(가운데)으로 전송
          - **데이터 규격**:
            ```json
@@ -404,7 +437,7 @@ def socket_docs():
            }
            ```
          
-      3. **`stream_status`**
+      4. **`stream_status`**
          - **설명**: 현재 영상 처리 및 송출 상태를 알려줌
          - **데이터 규격**:
            ```json
@@ -413,7 +446,7 @@ def socket_docs():
            }
            ```
          
-      4. **`stream_error`**
+      5. **`stream_error`**
          - **설명**: 영상 가공 및 프레임 처리 과정에서 예외/오류가 발생했을 때 전달
          - **데이터 규격**:
            ```json
