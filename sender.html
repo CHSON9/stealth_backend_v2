@@ -146,6 +146,11 @@
             socket.emit('register_client', { role: 'sender' });
         });
 
+        socket.on('start_stream', () => {
+            console.log("[Sender] 노트북으로부터 원격 송출 시작 명령 수신!");
+            startStreaming();
+        });
+
         function getUserMediaCompat(constraints) {
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 return navigator.mediaDevices.getUserMedia(constraints);
@@ -223,6 +228,8 @@
         }
 
         window.onload = () => startCamera('environment');
+
+        
     </script>
 </body>
 </html>
