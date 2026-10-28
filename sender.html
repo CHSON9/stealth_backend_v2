@@ -9,19 +9,31 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body {
             width: 100%;
-            height: 100dvh; /* 모바일 동적 높이에 정확히 맞춤 */
-            overflow: hidden; /* 스크롤 완전 차단 */
+            height: 100dvh;
+            overflow: hidden;
             background-color: #030705; color: #00ff88;
         }
+
+        /* [기본 세로 모드 레이아웃] */
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
-            display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: space-between;
             padding: 12px 16px 16px 16px;
         }
 
-        /* 상단 STEALTH 브랜드 헤더 */
+        .left-panel {
+            width: 100%;
+            max-width: 420px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
         header { 
-            width: 100%; max-width: 420px;
+            width: 100%;
             display: flex; align-items: center; justify-content: space-between;
             padding: 4px 0 8px 0; border-bottom: 1px solid rgba(0, 255, 136, 0.2);
             flex-shrink: 0;
@@ -36,7 +48,6 @@
             font-size: 0.75rem; font-weight: bold; border-radius: 4px;
         }
 
-        /* 상태 배지 */
         .status-badge {
             font-size: 0.75rem; font-weight: bold; padding: 4px 10px; border-radius: 4px;
             background-color: rgba(0, 255, 136, 0.1); color: #00ff88; border: 1px solid rgba(0, 255, 136, 0.3);
@@ -46,9 +57,9 @@
         .status-badge.streaming { background-color: #00ff88; color: #030705; }
         .status-badge.streaming .status-dot { background-color: #030705; }
 
-        /* 카메라 뷰파인더 뷰 (화면 여백에 맞게 가변 확장/축소) */
         .camera-card {
-            width: 100%; max-width: 420px; flex: 1; min-height: 0;
+            width: 100%; max-width: 420px;
+            flex: 1; min-height: 0;
             margin: 10px 0;
             background-color: #060d09; border: 1px solid rgba(0, 255, 136, 0.25);
             border-radius: 8px; padding: 10px; position: relative;
@@ -64,16 +75,19 @@
             position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;
             border: 1px dashed rgba(0, 255, 136, 0.2);
         }
-        video { width: 100%; height: 100%; object-fit: cover; }
+        
+        video { 
+            width: 100%; height: 100%; 
+            object-fit: cover; 
+            background-color: #000;
+        }
 
-        /* Figma 조준선 네온 코너 마크 */
         .corner { position: absolute; width: 14px; height: 14px; border-color: #00ff88; border-style: solid; pointer-events: none; z-index: 2; }
         .top-left { top: 8px; left: 8px; border-width: 2px 0 0 2px; }
         .top-right { top: 8px; right: 8px; border-width: 2px 2px 0 0; }
         .bottom-left { bottom: 8px; left: 8px; border-width: 0 0 2px 2px; }
         .bottom-right { bottom: 8px; right: 8px; border-width: 0 2px 2px 0; }
 
-        /* 조작 컨트롤 영역 */
         .controls { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
         .btn {
             width: 100%; padding: 14px; border: none; border-radius: 6px;
@@ -87,22 +101,112 @@
             background-color: transparent; color: #00ff88;
             border: 1px solid rgba(0, 255, 136, 0.4); padding: 6px 10px; font-size: 0.8rem;
         }
+
+        .landscape-title, .landscape-switch {
+            display: none;
+        }
+
+        /* 🟢 [가로 모드 전용 스타일 분기] */
+        @media (orientation: landscape) {
+            body {
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: stretch;
+                gap: 16px;
+                padding: 12px 16px;
+            }
+
+            /* 왼쪽 제어 패널 (헤더, 타이틀, 전환버튼, 송출버튼 몰아넣음) */
+            .left-panel {
+                width: 220px;
+                max-width: 220px;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                flex-shrink: 0;
+            }
+
+            header {
+                border-bottom: none;
+                padding: 0;
+            }
+
+            .landscape-title {
+                display: block;
+                font-size: 0.85rem;
+                color: #00ff88;
+                margin-top: 10px;
+                font-weight: bold;
+            }
+
+            .landscape-switch {
+                display: block;
+                margin-top: 6px;
+            }
+
+            .controls {
+                width: 100%;
+                max-width: 100%;
+            }
+
+            .btn {
+                padding: 14px 10px;
+            }
+
+            /* 오른쪽 카메라 뷰 영역 (제목/버튼 제거 후 꽉 채움) */
+            .camera-card {
+                flex: 1;
+                max-width: none;
+                margin: 0;
+                height: 100%;
+                padding: 0; /* 테두리 내부 여백 제거하여 꽉 채움 */
+            }
+
+            .card-header {
+                display: none; /* 가로 모드에선 오른쪽 상단 헤더 숨김 */
+            }
+
+            .viewfinder {
+                border-radius: 8px;
+                border: none;
+            }
+
+            video {
+                object-fit: cover; /* 오른쪽 영역에 여백 없이 꽉 채움 */
+            }
+        }
     </style>
 </head>
 <body>
 
-    <header>
-        <div class="brand">
-            <div class="brand-logo">S</div>
-            <span>STEALTH</span>
-        </div>
-        <div id="statusBadge" class="status-badge">
-            <span class="status-dot"></span>
-            <span id="statusText">대기 중</span>
-        </div>
-    </header>
+    <!-- 왼쪽 제어 구역 (가로 모드 시 모든 제어 요소 몰아넣음) -->
+    <div class="left-panel">
+        <div>
+            <header>
+                <div class="brand">
+                    <div class="brand-logo">S</div>
+                    <span>STEALTH</span>
+                </div>
+                <div id="statusBadge" class="status-badge">
+                    <span class="status-dot"></span>
+                    <span id="statusText">대기 중</span>
+                </div>
+            </header>
 
+            <!-- 가로 모드에서 왼쪽에 표시될 라벨 및 전환 버튼 -->
+            <div class="landscape-title">📷 원본 영상 (Sender)</div>
+            <button class="btn btn-switch landscape-switch" onclick="switchCamera()">🔄 전환</button>
+        </div>
+
+        <div class="controls">
+            <button id="startBtn" class="btn btn-start" onclick="startStreaming()">영상 보내기</button>
+            <button id="stopBtn" class="btn btn-stop" onclick="stopStreaming()">송출 중단</button>
+        </div>
+    </div>
+
+    <!-- 오른쪽 카메라 뷰 구역 -->
     <div class="camera-card">
+        <!-- 세로 모드 전용 카드 헤더 -->
         <div class="card-header">
             <span>📷 원본 영상 (Sender)</span>
             <button class="btn btn-switch" style="width: auto;" onclick="switchCamera()">🔄 전환</button>
@@ -115,11 +219,6 @@
             <div class="corner bottom-right"></div>
             <video id="webcam" autoplay playsinline muted></video>
         </div>
-    </div>
-
-    <div class="controls">
-        <button id="startBtn" class="btn btn-start" onclick="startStreaming()">영상 보내기</button>
-        <button id="stopBtn" class="btn btn-stop" onclick="stopStreaming()">송출 중단</button>
     </div>
 
     <script>
@@ -136,7 +235,7 @@
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
 
-        const SERVER_URL = "http://119.194.117.120:5000"; <!-- 환경 바뀔 때 변경 -->
+        const SERVER_URL = "http://119.194.117.120:5000";
         const socket = io(SERVER_URL, { 
             transports: ['websocket', 'polling'],
             autoConnect: true
@@ -147,7 +246,7 @@
         });
 
         socket.on('start_stream', () => {
-            console.log("[Sender] 노트북으로부터 원격 송출 시작 명령 수신!");
+            console.log("[Sender] 원격 송출 시작 명령 수신!");
             startStreaming();
         });
 
@@ -161,7 +260,7 @@
                     legacyApi.call(navigator, constraints, resolve, reject);
                 });
             }
-            return Promise.reject(new Error("HTTP 보안 정책으로 카메라를 열 수 없습니다. chrome://flags 설정을 확인하세요."));
+            return Promise.reject(new Error("카메라 접근 권한을 확인하세요."));
         }
 
         async function startCamera(facingMode) {
@@ -203,11 +302,11 @@
             startBtn.style.display = 'none';
             stopBtn.style.display = 'block';
 
-            canvas.width = 640;
-            canvas.height = 480;
-
             sendInterval = setInterval(() => {
                 if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                    canvas.width = video.videoWidth || 640;
+                    canvas.height = video.videoHeight || 480;
+
                     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                     const base64Image = canvas.toDataURL('image/jpeg', 0.5);
                     socket.emit('image_frame', { image: base64Image });
@@ -228,8 +327,6 @@
         }
 
         window.onload = () => startCamera('environment');
-
-        
     </script>
 </body>
 </html>
